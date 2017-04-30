@@ -4,29 +4,28 @@
  * Module dependencies
  */
 var _ = require('lodash'),
-  mongoose = require('mongoose'),
-  User = mongoose.model('User');
+  path = require('path'),
+  db = require(path.resolve('./config/lib/sequelize')),
+  User = db.User;
 
 /**
  * User middleware
  */
-exports.userByID = function (req, res, next, id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).send({
-      message: 'User is invalid'
-    });
-  }
-
+exports.userById = function (req, res, next, id) {
   User.findOne({
-    _id: id
-  }).exec(function (err, user) {
-    if (err) {
-      return next(err);
-    } else if (!user) {
-      return next(new Error('Failed to load User ' + id));
+    where: {
+      id: id
+    },
+    attributes: {
+      exclude: ['salt', 'password', 'providerData']
     }
-
+  }).then(function (user) {
+    if (!user) {
+      return next(new Error('Failed to load user ' + id));
+    }
     req.profile = user;
     next();
+  }).catch(function (err) {
+    return next(err);
   });
 };

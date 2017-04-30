@@ -9,7 +9,7 @@
 
   function ArticlesService($resource, $log) {
     var Article = $resource('/api/articles/:articleId', {
-      articleId: '@_id'
+      articleId: '@id'
     }, {
       update: {
         method: 'PUT'
@@ -26,7 +26,7 @@
     return Article;
 
     function createOrUpdate(article) {
-      if (article._id) {
+      if (article.id) {
         return article.$update(onSuccess, onError);
       } else {
         return article.$save(onSuccess, onError);

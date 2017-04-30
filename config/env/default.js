@@ -7,14 +7,24 @@ module.exports = {
     keywords: 'mongodb, express, angularjs, node.js, mongoose, passport',
     googleAnalyticsTrackingID: process.env.GOOGLE_ANALYTICS_TRACKING_ID || 'GOOGLE_ANALYTICS_TRACKING_ID'
   },
+  // mysql db settings
   db: {
-    promise: global.Promise
+    host: '123.57.142.198',
+    port: 3306,
+    name: 'imean',
+    username: 'taobataoma',
+    password: 'Welcom@123',
+
+    option: {
+      enableSequelizeLog: true,
+      FORCE_DB_SYNC: false
+    }
   },
   port: process.env.PORT || 3000,
   host: process.env.HOST || '0.0.0.0',
   // DOMAIN config should be set to the fully qualified application accessible
   // URL. For example: https://www.myapp.com (including port if required).
-  domain: process.env.DOMAIN,
+  domain: 'localhost',
   // Session Cookie settings
   sessionCookie: {
     // session expiration is set by default to 24 hours

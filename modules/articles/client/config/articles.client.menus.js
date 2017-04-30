@@ -12,7 +12,8 @@
       title: 'Articles',
       state: 'articles',
       type: 'dropdown',
-      roles: ['*']
+      roles: ['*'],
+      position: 0
     });
 
     // Add the dropdown list item

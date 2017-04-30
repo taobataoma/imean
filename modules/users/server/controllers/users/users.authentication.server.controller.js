@@ -5,9 +5,9 @@
  */
 var path = require('path'),
   errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller')),
-  mongoose = require('mongoose'),
   passport = require('passport'),
-  User = mongoose.model('User');
+  db = require(path.resolve('./config/lib/sequelize')),
+  User = db.User;
 
 // URLs for which user can't be redirected on signin
 var noReturnUrls = [
@@ -23,29 +23,28 @@ exports.signup = function (req, res) {
   delete req.body.roles;
 
   // Init user and add missing fields
-  var user = new User(req.body);
+  var user = User.build(req.body);
   user.provider = 'local';
   user.displayName = user.firstName + ' ' + user.lastName;
-
+  user.salt = user.makeSalt();
+  user.password = user.encryptPassword(req.body.password, user.salt);
   // Then save the user
-  user.save(function (err) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    } else {
-      // Remove sensitive data before login
-      user.password = undefined;
-      user.salt = undefined;
+  user.save().then(function () {
+    // Remove sensitive data before login
+    user.password = undefined;
+    user.salt = undefined;
 
-      req.login(user, function (err) {
-        if (err) {
-          res.status(400).send(err);
-        } else {
-          res.json(user);
-        }
-      });
-    }
+    return req.login(user, function (err) {
+      if (err) {
+        return res.status(400).send(err);
+      } else {
+        return res.json(user);
+      }
+    });
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };
 
@@ -55,17 +54,17 @@ exports.signup = function (req, res) {
 exports.signin = function (req, res, next) {
   passport.authenticate('local', function (err, user, info) {
     if (err || !user) {
-      res.status(422).send(info);
+      return res.status(422).send(info);
     } else {
       // Remove sensitive data before login
       user.password = undefined;
       user.salt = undefined;
 
-      req.login(user, function (err) {
+      return req.login(user, function (err) {
         if (err) {
-          res.status(400).send(err);
+          return res.status(400).send(err);
         } else {
-          res.json(user);
+          return res.json(user);
         }
       });
     }
@@ -77,6 +76,7 @@ exports.signin = function (req, res, next) {
  */
 exports.signout = function (req, res) {
   req.logout();
+  req.session.destroy();
   res.redirect('/');
 };
 
@@ -107,7 +107,7 @@ exports.oauthCallback = function (strategy) {
       if (!user) {
         return res.redirect('/authentication/signin');
       }
-      req.login(user, function (err) {
+      return req.login(user, function (err) {
         if (err) {
           return res.redirect('/authentication/signin');
         }
@@ -146,41 +146,43 @@ exports.saveOAuthUserProfile = function (req, providerUserProfile, done) {
 
     // Define a search query to find existing user with current provider profile
     var searchQuery = {
-      $or: [mainProviderSearchQuery, additionalProviderSearchQuery]
+      where: {
+        $or: [mainProviderSearchQuery, additionalProviderSearchQuery]
+      }
     };
 
-    User.findOne(searchQuery, function (err, user) {
-      if (err) {
-        return done(err);
-      } else {
-        if (!user) {
-          var possibleUsername = providerUserProfile.username || ((providerUserProfile.email) ? providerUserProfile.email.split('@')[0] : '');
+    User.findOne(searchQuery).then(function (user) {
+      if (!user) {
+        var possibleUsername = providerUserProfile.username || ((providerUserProfile.email) ? providerUserProfile.email.split('@')[0] : '');
 
-          User.findUniqueUsername(possibleUsername, null, function (availableUsername) {
-            user = new User({
-              firstName: providerUserProfile.firstName,
-              lastName: providerUserProfile.lastName,
-              username: availableUsername,
-              displayName: providerUserProfile.displayName,
-              profileImageURL: providerUserProfile.profileImageURL,
-              provider: providerUserProfile.provider,
-              providerData: providerUserProfile.providerData
-            });
-
-            // Email intentionally added later to allow defaults (sparse settings) to be applid.
-            // Handles case where no email is supplied.
-            // See comment: https://github.com/meanjs/mean/pull/1495#issuecomment-246090193
-            user.email = providerUserProfile.email;
-
-            // And save the user
-            user.save(function (err) {
-              return done(err, user, info);
-            });
+        User.findUniqueUsername(possibleUsername, null, function (availableUsername) {
+          user = User.build({
+            firstName: providerUserProfile.firstName,
+            lastName: providerUserProfile.lastName,
+            username: availableUsername,
+            displayName: providerUserProfile.displayName,
+            profileImageURL: providerUserProfile.profileImageURL,
+            provider: providerUserProfile.provider,
+            providerData: providerUserProfile.providerData
           });
-        } else {
-          return done(err, user, info);
-        }
+
+          // Email intentionally added later to allow defaults (sparse settings) to be applid.
+          // Handles case where no email is supplied.
+          // See comment: https://github.com/meanjs/mean/pull/1495#issuecomment-246090193
+          user.email = providerUserProfile.email;
+
+          // And save the user
+          user.save().then(function () {
+            return done(null, user, info);
+          }).catch(function (err) {
+            return done(err, null);
+          });
+        });
+      } else {
+        return done(null, user, info);
       }
+    }).catch(function (err) {
+      return done(err);
     });
   } else {
     // User is already logged in, join the provider data to the existing user
@@ -195,12 +197,11 @@ exports.saveOAuthUserProfile = function (req, providerUserProfile, done) {
 
       user.additionalProvidersData[providerUserProfile.provider] = providerUserProfile.providerData;
 
-      // Then tell mongoose that we've updated the additionalProvidersData field
-      user.markModified('additionalProvidersData');
-
       // And save the user
-      user.save(function (err) {
-        return done(err, user, info);
+      user.save().then(function () {
+        return done(null, user, '/settings/accounts');
+      }).catch(function (err) {
+        return done(err, user, '/settings/accounts');
       });
     } else {
       return done(new Error('User is already connected using this provider'), user);
@@ -226,24 +227,19 @@ exports.removeOAuthProvider = function (req, res, next) {
   // Delete the additional provider
   if (user.additionalProvidersData[provider]) {
     delete user.additionalProvidersData[provider];
-
-    // Then tell mongoose that we've updated the additionalProvidersData field
-    user.markModified('additionalProvidersData');
   }
 
-  user.save(function (err) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    } else {
-      req.login(user, function (err) {
-        if (err) {
-          return res.status(400).send(err);
-        } else {
-          return res.json(user);
-        }
-      });
-    }
+  user.save().then(function () {
+    return req.login(user, function (err) {
+      if (err) {
+        return res.status(400).send(err);
+      } else {
+        return res.json(user);
+      }
+    });
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };

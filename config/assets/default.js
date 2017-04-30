@@ -25,8 +25,7 @@ module.exports = {
         'public/lib/angular-ui-router/release/angular-ui-router.js',
         'public/lib/owasp-password-strength-test/owasp-password-strength-test.js',
         // endbower
-      ],
-      tests: ['public/lib/angular-mocks/angular-mocks.js']
+      ]
     },
     css: [
       'modules/*/client/{css,less,scss}/*.css'

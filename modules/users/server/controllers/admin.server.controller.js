@@ -4,9 +4,9 @@
  * Module dependencies
  */
 var path = require('path'),
-  mongoose = require('mongoose'),
-  User = mongoose.model('User'),
-  errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller'));
+  errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller')),
+  db = require(path.resolve('./config/lib/sequelize')),
+  User = db.User;
 
 /**
  * Show the current user
@@ -27,14 +27,12 @@ exports.update = function (req, res) {
   user.displayName = user.firstName + ' ' + user.lastName;
   user.roles = req.body.roles;
 
-  user.save(function (err) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    }
-
+  user.save().then(function () {
     res.json(user);
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };
 
@@ -44,14 +42,12 @@ exports.update = function (req, res) {
 exports.delete = function (req, res) {
   var user = req.model;
 
-  user.remove(function (err) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    }
-
+  user.destroy().then(function () {
     res.json(user);
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };
 
@@ -59,14 +55,15 @@ exports.delete = function (req, res) {
  * List of Users
  */
 exports.list = function (req, res) {
-  User.find({}, '-salt -password -providerData').sort('-created').populate('user', 'displayName').exec(function (err, users) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    }
-
+  User.findAll({
+    attributes: {exclude: ['salt', 'password', 'providerData']},
+    order: 'createdAt DESC'
+  }).then(function (users) {
     res.json(users);
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };
 
@@ -74,20 +71,16 @@ exports.list = function (req, res) {
  * User middleware
  */
 exports.userByID = function (req, res, next, id) {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).send({
-      message: 'User is invalid'
-    });
-  }
-
-  User.findById(id, '-salt -password -providerData').exec(function (err, user) {
-    if (err) {
-      return next(err);
-    } else if (!user) {
+  User.findOne({
+    where: {id: id},
+    attributes: {exclude: ['salt', 'password', 'providerData']}
+  }).then(function (user) {
+    if (!user) {
       return next(new Error('Failed to load user ' + id));
     }
-
     req.model = user;
     next();
+  }).catch(function (err) {
+    return next(err);
   });
 };

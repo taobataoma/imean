@@ -43,7 +43,7 @@
 
       user.$update(function () {
         $state.go('admin.user', {
-          userId: user._id
+          userId: user.id
         });
         Notification.success({ message: '<i class="glyphicon glyphicon-ok"></i> User saved successfully!' });
       }, function (errorResponse) {

@@ -3,13 +3,13 @@
     <h1>Articles</h1>
   </div>
   <div class="list-group">
-    <a ng-repeat="article in vm.articles" ui-sref="articles.view({ articleId: article._id })" class="list-group-item">
+    <a ng-repeat="article in vm.articles" ui-sref="articles.view({ articleId: article.id })" class="list-group-item">
       <small class="list-group-item-text">
         Posted on
-        <span ng-bind="article.created | date:'mediumDate'"></span>
+        <span ng-bind="article.createdAt | date:'mediumDate'"></span>
         by
-        <span ng-if="article.user" ng-bind="article.user.displayName"></span>
-        <span ng-if="!article.user">Deleted User</span>
+        <span ng-if="article.User" ng-bind="article.User.displayName"></span>
+        <span ng-if="!article.User">Deleted User</span>
       </small>
       <h4 class="list-group-item-heading" ng-bind="article.title"></h4>
       <p class="list-group-item-text" ng-bind="article.content"></p>

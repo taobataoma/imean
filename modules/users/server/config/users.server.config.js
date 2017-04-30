@@ -1,15 +1,17 @@
 'use strict';
 
 /**
- * Module dependencies
+ * Module dependencies.
  */
 var passport = require('passport'),
-  User = require('mongoose').model('User'),
   path = require('path'),
-  config = require(path.resolve('./config/config'));
+  config = require(path.resolve('./config/config')),
+  db = require(path.resolve('./config/lib/sequelize')),
+  User = db.User;
+
 
 /**
- * Module init function
+ * Module init function.
  */
 module.exports = function (app, db) {
   // Serialize sessions
@@ -20,9 +22,12 @@ module.exports = function (app, db) {
   // Deserialize sessions
   passport.deserializeUser(function (id, done) {
     User.findOne({
-      _id: id
-    }, '-salt -password', function (err, user) {
-      done(err, user);
+      where: {id: id},
+      attributes: {exclude: ['salt', 'password', 'providerData']}
+    }).then(function (user) {
+      return done(null, user);
+    }).catch(function (err) {
+      return done(err, null);
     });
   });
 

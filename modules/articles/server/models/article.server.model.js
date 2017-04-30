@@ -1,34 +1,30 @@
 'use strict';
 
-/**
- * Module dependencies
- */
-var mongoose = require('mongoose'),
-  Schema = mongoose.Schema;
+module.exports = function (sequelize, DataTypes) {
 
-/**
- * Article Schema
- */
-var ArticleSchema = new Schema({
-  created: {
-    type: Date,
-    default: Date.now
-  },
-  title: {
-    type: String,
-    default: '',
-    trim: true,
-    required: 'Title cannot be blank'
-  },
-  content: {
-    type: String,
-    default: '',
-    trim: true
-  },
-  user: {
-    type: Schema.ObjectId,
-    ref: 'User'
-  }
-});
+  var Article = sequelize.define('Article',
+    {
+      title: {
+        type: DataTypes.STRING,
+        defaultValue: '',
+        comment: 'title'
+      },
+      content: {
+        type: DataTypes.TEXT,
+        comment: 'content'
+      }
+    },
+    {
+      comment: 'article table',
 
-mongoose.model('Article', ArticleSchema);
+      associate: function (models) {
+        Article.belongsTo(
+          models.User,
+          {foreignKey: '_user_id'}
+        );
+      }
+    }
+  );
+
+  return Article;
+};

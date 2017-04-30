@@ -13,28 +13,16 @@ module.exports = {
   // Binding to 127.0.0.1 is safer in production.
   host: process.env.HOST || '0.0.0.0',
   db: {
-    uri: process.env.MONGOHQ_URL || process.env.MONGODB_URI || 'mongodb://' + (process.env.DB_1_PORT_27017_TCP_ADDR || 'localhost') + '/mean',
-    options: {
-      user: '',
-      pass: ''
-      /**
-        * Uncomment to enable ssl certificate based authentication to mongodb
-        * servers. Adjust the settings below for your specific certificate
-        * setup.
-        * for connect to a replicaset, rename server:{...} to replset:{...}
-      server: {
-        ssl: true,
-        sslValidate: false,
-        checkServerIdentity: false,
-        sslCA: fs.readFileSync('./config/sslcerts/ssl-ca.pem'),
-        sslCert: fs.readFileSync('./config/sslcerts/ssl-cert.pem'),
-        sslKey: fs.readFileSync('./config/sslcerts/ssl-key.pem'),
-        sslPass: '1234'
-      }
-      */
-    },
-    // Enable mongoose debug mode
-    debug: process.env.MONGODB_DEBUG || false
+    host: '123.57.142.198',
+    port: 3306,
+    name: 'imean',
+    username: 'taobataoma',
+    password: 'Welcom@123',
+
+    option: {
+      enableSequelizeLog: false,
+      FORCE_DB_SYNC: false
+    }
   },
   log: {
     // logging with Morgan - https://github.com/expressjs/morgan

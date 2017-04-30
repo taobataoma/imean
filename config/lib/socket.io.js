@@ -10,7 +10,7 @@ var config = require('../config'),
   passport = require('passport'),
   socketio = require('socket.io'),
   session = require('express-session'),
-  MongoStore = require('connect-mongo')(session);
+  SequelizeStore = require('express-sequelize-session')(session.Store);
 
 // Define the Socket.io configuration method
 module.exports = function (app, db) {
@@ -66,14 +66,12 @@ module.exports = function (app, db) {
     // Create a new HTTP server
     server = http.createServer(app);
   }
+
   // Create a new Socket.io server
   var io = socketio.listen(server);
 
-  // Create a MongoDB storage object
-  var mongoStore = new MongoStore({
-    mongooseConnection: db.connection,
-    collection: config.sessionCollection
-  });
+  // Create stroe
+  var store = new SequelizeStore(db.sequelize);
 
   // Intercept Socket.io's handshake request
   io.use(function (socket, next) {
@@ -85,7 +83,7 @@ module.exports = function (app, db) {
       if (!sessionId) return next(new Error('sessionId was not found in socket.request'), false);
 
       // Use the mongoStorage instance to get the Express session information
-      mongoStore.get(sessionId, function (err, session) {
+      store.get(sessionId, function (err, session) {
         if (err) return next(err, false);
         if (!session) return next(new Error('session was not found for ' + sessionId), false);
 

@@ -6,8 +6,6 @@
 var _ = require('lodash'),
   fs = require('fs'),
   defaultAssets = require('./config/assets/default'),
-  testAssets = require('./config/assets/test'),
-  testConfig = require('./config/env/test'),
   glob = require('glob'),
   gulp = require('gulp'),
   gulpLoadPlugins = require('gulp-load-plugins'),
@@ -27,22 +25,16 @@ var _ = require('lodash'),
   del = require('del'),
   KarmaServer = require('karma').Server;
 
-// Local settings
-var changedTestFiles = [];
-
-// Set NODE_ENV to 'test'
-gulp.task('env:test', function () {
-  process.env.NODE_ENV = 'test';
-});
-
 // Set NODE_ENV to 'development'
 gulp.task('env:dev', function () {
   process.env.NODE_ENV = 'development';
+  process.env.BLUEBIRD_WARNINGS = 0;
 });
 
 // Set NODE_ENV to 'production'
 gulp.task('env:prod', function () {
   process.env.NODE_ENV = 'production';
+  process.env.BLUEBIRD_WARNINGS = 0;
 });
 
 // Nodemon task
@@ -101,31 +93,6 @@ gulp.task('watch', function () {
   }
 });
 
-// Watch server test files
-gulp.task('watch:server:run-tests', function () {
-  // Start livereload
-  plugins.refresh.listen();
-
-  // Add Server Test file rules
-  gulp.watch([testAssets.tests.server, defaultAssets.server.allJS], ['test:server']).on('change', function (file) {
-    changedTestFiles = [];
-
-    // iterate through server test glob patterns
-    _.forEach(testAssets.tests.server, function (pattern) {
-      // determine if the changed (watched) file is a server test
-      _.forEach(glob.sync(pattern), function (f) {
-        var filePath = path.resolve(f);
-
-        if (filePath === path.resolve(file.path)) {
-          changedTestFiles.push(f);
-        }
-      });
-    });
-
-    plugins.refresh.changed();
-  });
-});
-
 // CSS linting task
 gulp.task('csslint', function () {
   return gulp.src(defaultAssets.client.css)
@@ -140,10 +107,7 @@ gulp.task('eslint', function () {
   var assets = _.union(
     defaultAssets.server.gulpConfig,
     defaultAssets.server.allJS,
-    defaultAssets.client.js,
-    testAssets.tests.server,
-    testAssets.tests.client,
-    testAssets.tests.e2e
+    defaultAssets.client.js
   );
 
   return gulp.src(assets)
@@ -284,63 +248,6 @@ gulp.task('templatecache', function () {
     .pipe(gulp.dest('build'));
 });
 
-// Mocha tests task
-gulp.task('mocha', function (done) {
-  // Open mongoose connections
-  var mongoose = require('./config/lib/mongoose.js');
-  var testSuites = changedTestFiles.length ? changedTestFiles : testAssets.tests.server;
-  var error;
-
-  // Connect mongoose
-  mongoose.connect(function () {
-    mongoose.loadModels();
-    // Run the tests
-    gulp.src(testSuites)
-      .pipe(plugins.mocha({
-        reporter: 'spec',
-        timeout: 10000
-      }))
-      .on('error', function (err) {
-        // If an error occurs, save it
-        error = err;
-      })
-      .on('end', function () {
-        // When the tests are done, disconnect mongoose and pass the error state back to gulp
-        mongoose.disconnect(function () {
-          done(error);
-        });
-      });
-  });
-});
-
-// Prepare istanbul coverage test
-gulp.task('pre-test', function () {
-
-  // Display coverage for all server JavaScript files
-  return gulp.src(defaultAssets.server.allJS)
-    // Covering files
-    .pipe(plugins.istanbul())
-    // Force `require` to return covered files
-    .pipe(plugins.istanbul.hookRequire());
-});
-
-// Run istanbul test and write report
-gulp.task('mocha:coverage', ['pre-test', 'mocha'], function () {
-  var testSuites = changedTestFiles.length ? changedTestFiles : testAssets.tests.server;
-
-  return gulp.src(testSuites)
-    .pipe(plugins.istanbul.writeReports({
-      reportOpts: { dir: './coverage/server' }
-    }));
-});
-
-// Karma test runner task
-gulp.task('karma', function (done) {
-  new KarmaServer({
-    configFile: __dirname + '/karma.conf.js'
-  }, done).start();
-});
-
 // Run karma with coverage options set and write report
 gulp.task('karma:coverage', function(done) {
   new KarmaServer({
@@ -368,23 +275,6 @@ gulp.task('karma:coverage', function(done) {
   }, done).start();
 });
 
-// Drops the MongoDB database, used in e2e testing
-gulp.task('dropdb', function (done) {
-  // Use mongoose configuration
-  var mongoose = require('./config/lib/mongoose.js');
-
-  mongoose.connect(function (db) {
-    db.connection.db.dropDatabase(function (err) {
-      if (err) {
-        console.error(err);
-      } else {
-        console.log('Successfully dropped db: ', db.connection.db.databaseName);
-      }
-      db.connection.db.close(done);
-    });
-  });
-});
-
 // Downloads the selenium webdriver if protractor version is compatible
 gulp.task('webdriver_update', webdriver_update);
 
@@ -392,51 +282,10 @@ gulp.task('webdriver_prep', function(done) {
   runSequence('protractor_prep', 'webdriver_update', done);
 });
 
-gulp.task('protractor_prep', function() {
-  var nodeVersions = process.versions;
-  switch (nodeVersions.node.substr(0, 1)) {
-    case '4':
-    case '5':
-      console.log('E2E testing doesnt support v4 and v5');
-      process.exit(0);
-      break;
-    case '6':
-      if (parseInt(nodeVersions.node.substr(1, 1), 10) < 9) {
-        console.log('E2E testing with latest protractor requires v >= 6.9 ');
-        process.exit(0);
-      }
-      break;
-    default:
-      console.log('Detecting support for protractor E2E tests');
-      break;
-  }
-
-  return gulp.src('*.js');
-});
-
-
 // Start the standalone selenium server
 // NOTE: This is not needed if you reference the
 // seleniumServerJar in your protractor.conf.js
 gulp.task('webdriver_standalone', webdriver_standalone);
-
-// Protractor test runner task
-gulp.task('protractor', ['webdriver_prep'], function () {
-  gulp.src([])
-    .pipe(protractor({
-      configFile: 'protractor.conf.js'
-    }))
-    .on('end', function() {
-      console.log('E2E Testing complete');
-      // exit with success.
-      process.exit(0);
-    })
-    .on('error', function(err) {
-      console.error('E2E Tests failed:');
-      console.error(err);
-      process.exit(1);
-    });
-});
 
 // Lint CSS and JavaScript files.
 gulp.task('lint', function (done) {
@@ -446,32 +295,6 @@ gulp.task('lint', function (done) {
 // Lint project files and minify them into two production files.
 gulp.task('build', function (done) {
   runSequence('env:dev', 'wiredep:prod', 'lint', ['uglify', 'cssmin'], done);
-});
-
-// Run the project tests
-gulp.task('test', function (done) {
-  runSequence('env:test', 'test:server', 'karma', 'nodemon', 'protractor', done);
-});
-
-gulp.task('test:server', function (done) {
-  runSequence('env:test', ['copyLocalEnvConfig', 'makeUploadsDir', 'dropdb'], 'lint', 'mocha', done);
-});
-
-// Watch all server files for changes & run server tests (test:server) task on changes
-gulp.task('test:server:watch', function (done) {
-  runSequence('test:server', 'watch:server:run-tests', done);
-});
-
-gulp.task('test:client', function (done) {
-  runSequence('env:test', 'lint', 'dropdb', 'karma', done);
-});
-
-gulp.task('test:e2e', function (done) {
-  runSequence('env:test', 'lint', 'dropdb', 'nodemon', 'protractor', done);
-});
-
-gulp.task('test:coverage', function (done) {
-  runSequence('env:test', ['copyLocalEnvConfig', 'makeUploadsDir', 'dropdb'], 'lint', 'mocha:coverage', 'karma:coverage', done);
 });
 
 // Run the project in development mode with node debugger enabled

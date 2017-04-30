@@ -7,11 +7,11 @@ var _ = require('lodash'),
   fs = require('fs'),
   path = require('path'),
   errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller')),
-  mongoose = require('mongoose'),
   multer = require('multer'),
   config = require(path.resolve('./config/config')),
-  User = mongoose.model('User'),
-  validator = require('validator');
+  validator = require('validator'),
+  db = require(path.resolve('./config/lib/sequelize')),
+  User = db.User;
 
 var whitelistedFields = ['firstName', 'lastName', 'email', 'username'];
 
@@ -26,23 +26,21 @@ exports.update = function (req, res) {
     // Update whitelisted fields only
     user = _.extend(user, _.pick(req.body, whitelistedFields));
 
-    user.updated = Date.now();
+    user.updatedAt = Date.now();
     user.displayName = user.firstName + ' ' + user.lastName;
 
-    user.save(function (err) {
-      if (err) {
-        return res.status(422).send({
-          message: errorHandler.getErrorMessage(err)
-        });
-      } else {
-        req.login(user, function (err) {
-          if (err) {
-            res.status(400).send(err);
-          } else {
-            res.json(user);
-          }
-        });
-      }
+    user.save().then(function () {
+      req.login(user, function (err) {
+        if (err) {
+          return res.status(400).send(err);
+        } else {
+          return res.json(user);
+        }
+      });
+    }).catch(function (err) {
+      return res.status(422).send({
+        message: errorHandler.getErrorMessage(err)
+      });
     });
   } else {
     res.status(401).send({
@@ -73,6 +71,7 @@ exports.changeProfilePicture = function (req, res) {
         res.json(user);
       })
       .catch(function (err) {
+        console.log(err);
         res.status(422).send(err);
       });
   } else {
@@ -81,7 +80,7 @@ exports.changeProfilePicture = function (req, res) {
     });
   }
 
-  function uploadImage () {
+  function uploadImage() {
     return new Promise(function (resolve, reject) {
       upload(req, res, function (uploadError) {
         if (uploadError) {
@@ -93,22 +92,21 @@ exports.changeProfilePicture = function (req, res) {
     });
   }
 
-  function updateUser () {
+  function updateUser() {
     return new Promise(function (resolve, reject) {
       user.profileImageURL = config.uploads.profile.image.dest + req.file.filename;
-      user.save(function (err, theuser) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
+
+      user.save().then(function () {
+        resolve();
+      }).catch(function (err) {
+        reject(err);
       });
     });
   }
 
-  function deleteOldImage () {
+  function deleteOldImage() {
     return new Promise(function (resolve, reject) {
-      if (existingImageUrl !== User.schema.path('profileImageURL').defaultValue) {
+      if (existingImageUrl !== user.getProfileImageDefault()) {
         fs.unlink(existingImageUrl, function (unlinkError) {
           if (unlinkError) {
             console.log(unlinkError);
@@ -125,11 +123,11 @@ exports.changeProfilePicture = function (req, res) {
     });
   }
 
-  function login () {
+  function login() {
     return new Promise(function (resolve, reject) {
       req.login(user, function (err) {
         if (err) {
-          res.status(400).send(err);
+          return res.status(400).send(err);
         } else {
           resolve();
         }
@@ -147,10 +145,11 @@ exports.me = function (req, res) {
   var safeUserObject = null;
   if (req.user) {
     safeUserObject = {
+      id: req.user.id,
       displayName: validator.escape(req.user.displayName),
       provider: validator.escape(req.user.provider),
       username: validator.escape(req.user.username),
-      created: req.user.created.toString(),
+      createdAt: req.user.createdAt.toString(),
       roles: req.user.roles,
       profileImageURL: req.user.profileImageURL,
       email: validator.escape(req.user.email),

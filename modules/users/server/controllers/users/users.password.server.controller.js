@@ -6,11 +6,11 @@
 var path = require('path'),
   config = require(path.resolve('./config/config')),
   errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller')),
-  mongoose = require('mongoose'),
-  User = mongoose.model('User'),
   nodemailer = require('nodemailer'),
   async = require('async'),
-  crypto = require('crypto');
+  crypto = require('crypto'),
+  db = require(path.resolve('./config/lib/sequelize')),
+  User = db.User;
 
 var smtpTransport = nodemailer.createTransport(config.mailer.options);
 
@@ -30,13 +30,10 @@ exports.forgot = function (req, res, next) {
     function (token, done) {
       if (req.body.username) {
         User.findOne({
-          username: req.body.username.toLowerCase()
-        }, '-salt -password', function (err, user) {
-          if (err || !user) {
-            return res.status(400).send({
-              message: 'No account with that username has been found'
-            });
-          } else if (user.provider !== 'local') {
+          where: {username: req.body.username.toLowerCase()},
+          attributes: {exclude: ['salt', 'password']}
+        }).then(function (user) {
+          if (user.provider !== 'local') {
             return res.status(400).send({
               message: 'It seems like you signed up using your ' + user.provider + ' account'
             });
@@ -44,10 +41,16 @@ exports.forgot = function (req, res, next) {
             user.resetPasswordToken = token;
             user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
 
-            user.save(function (err) {
-              done(err, token, user);
+            user.save().then(function () {
+              done(null, token, user);
+            }).catch(function (err) {
+              done(err, null, null);
             });
           }
+        }).catch(function (err) {
+          return res.status(400).send({
+            message: 'No account with that username has been found'
+          });
         });
       } else {
         return res.status(422).send({
@@ -104,16 +107,20 @@ exports.forgot = function (req, res, next) {
  */
 exports.validateResetToken = function (req, res) {
   User.findOne({
-    resetPasswordToken: req.params.token,
-    resetPasswordExpires: {
-      $gt: Date.now()
+    where: {
+      resetPasswordToken: req.params.token,
+      resetPasswordExpires: {
+        $gt: Date.now()
+      }
     }
-  }, function (err, user) {
-    if (err || !user) {
+  }).then(function (user) {
+    if (!user) {
       return res.redirect('/password/reset/invalid');
     }
 
     res.redirect('/password/reset/' + req.params.token);
+  }).catch(function (err) {
+    return res.redirect('/password/reset/invalid');
   });
 };
 
@@ -128,37 +135,38 @@ exports.reset = function (req, res, next) {
 
     function (done) {
       User.findOne({
-        resetPasswordToken: req.params.token,
-        resetPasswordExpires: {
-          $gt: Date.now()
+        where: {
+          resetPasswordToken: req.params.token,
+          resetPasswordExpires: {
+            $gt: Date.now()
+          }
         }
-      }, function (err, user) {
-        if (!err && user) {
+      }).then(function (user) {
+        if (user) {
           if (passwordDetails.newPassword === passwordDetails.verifyPassword) {
-            user.password = passwordDetails.newPassword;
-            user.resetPasswordToken = undefined;
-            user.resetPasswordExpires = undefined;
+            user.salt = user.makeSalt();
+            user.password = user.encryptPassword(passwordDetails.newPassword, user.salt);
+            user.resetPasswordToken = null;
+            user.resetPasswordExpires = null;
 
-            user.save(function (err) {
-              if (err) {
-                return res.status(422).send({
-                  message: errorHandler.getErrorMessage(err)
-                });
-              } else {
-                req.login(user, function (err) {
-                  if (err) {
-                    res.status(400).send(err);
-                  } else {
-                    // Remove sensitive data before return authenticated user
-                    user.password = undefined;
-                    user.salt = undefined;
+            user.save().then(function () {
+              req.login(user, function (err) {
+                if (err) {
+                  res.status(400).send(err);
+                } else {
+                  // Remove sensitive data before return authenticated user
+                  user.password = undefined;
+                  user.salt = undefined;
 
-                    res.json(user);
+                  res.json(user);
 
-                    done(err, user);
-                  }
-                });
-              }
+                  done(err, user);
+                }
+              });
+            }).catch(function (err) {
+              return res.status(422).send({
+                message: errorHandler.getErrorMessage(err)
+              });
             });
           } else {
             return res.status(422).send({
@@ -170,6 +178,10 @@ exports.reset = function (req, res, next) {
             message: 'Password reset token is invalid or has expired.'
           });
         }
+      }).catch(function (err) {
+        return res.status(422).send({
+          message: errorHandler.getErrorMessage(err)
+        });
       });
     },
     function (user, done) {
@@ -209,44 +221,41 @@ exports.changePassword = function (req, res, next) {
 
   if (req.user) {
     if (passwordDetails.newPassword) {
-      User.findById(req.user.id, function (err, user) {
-        if (!err && user) {
-          if (user.authenticate(passwordDetails.currentPassword)) {
-            if (passwordDetails.newPassword === passwordDetails.verifyPassword) {
-              user.password = passwordDetails.newPassword;
+      User.findById(req.user.id).then(function (user) {
+        if (user.authenticate(passwordDetails.currentPassword)) {
+          if (passwordDetails.newPassword === passwordDetails.verifyPassword) {
+            user.salt = user.makeSalt();
+            user.password = user.encryptPassword(passwordDetails.newPassword, user.salt);
 
-              user.save(function (err) {
+            user.save().then(function () {
+              req.login(user, function (err) {
                 if (err) {
-                  return res.status(422).send({
-                    message: errorHandler.getErrorMessage(err)
-                  });
+                  res.status(400).send(err);
                 } else {
-                  req.login(user, function (err) {
-                    if (err) {
-                      res.status(400).send(err);
-                    } else {
-                      res.send({
-                        message: 'Password changed successfully'
-                      });
-                    }
+                  res.send({
+                    message: 'Password changed successfully'
                   });
                 }
               });
-            } else {
-              res.status(422).send({
-                message: 'Passwords do not match'
+            }).catch(function (err) {
+              return res.status(422).send({
+                message: errorHandler.getErrorMessage(err)
               });
-            }
+            });
           } else {
             res.status(422).send({
-              message: 'Current password is incorrect'
+              message: 'Passwords do not match'
             });
           }
         } else {
-          res.status(400).send({
-            message: 'User is not found'
+          res.status(422).send({
+            message: 'Current password is incorrect'
           });
         }
+      }).catch(function (err) {
+        res.status(400).send({
+          message: 'User is not found'
+        });
       });
     } else {
       res.status(422).send({

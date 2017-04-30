@@ -4,25 +4,24 @@
  * Module dependencies
  */
 var path = require('path'),
-  mongoose = require('mongoose'),
-  Article = mongoose.model('Article'),
-  errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller'));
+  errorHandler = require(path.resolve('./modules/core/server/controllers/errors.server.controller')),
+  db = require(path.resolve('./config/lib/sequelize')),
+  Article = db.Article,
+  User = db.User;
 
 /**
  * Create an article
  */
 exports.create = function (req, res) {
-  var article = new Article(req.body);
-  article.user = req.user;
+  var article = Article.build(req.body);
+  article._user_id = req.user.id;
 
-  article.save(function (err) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    } else {
-      res.json(article);
-    }
+  article.save().then(function () {
+    res.json(article);
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };
 
@@ -30,11 +29,8 @@ exports.create = function (req, res) {
  * Show the current article
  */
 exports.read = function (req, res) {
-  // convert mongoose document to JSON
   var article = req.article ? req.article.toJSON() : {};
 
-  // Add a custom field to the Article, for determining if the current User is the "owner".
-  // NOTE: This field is NOT persisted to the database, since it doesn't exist in the Article model.
   article.isCurrentUserOwner = !!(req.user && article.user && article.user._id.toString() === req.user._id.toString());
 
   res.json(article);
@@ -49,14 +45,12 @@ exports.update = function (req, res) {
   article.title = req.body.title;
   article.content = req.body.content;
 
-  article.save(function (err) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    } else {
-      res.json(article);
-    }
+  article.save().then(function () {
+    res.json(article);
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };
 
@@ -66,14 +60,12 @@ exports.update = function (req, res) {
 exports.delete = function (req, res) {
   var article = req.article;
 
-  article.remove(function (err) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    } else {
-      res.json(article);
-    }
+  article.destroy().then(function () {
+    res.json(article);
+  }).catch(function (err) {
+    return res.status(422).send({
+      message: errorHandler.getErrorMessage(err)
+    });
   });
 };
 
@@ -81,14 +73,18 @@ exports.delete = function (req, res) {
  * List of Articles
  */
 exports.list = function (req, res) {
-  Article.find().sort('-created').populate('user', 'displayName').exec(function (err, articles) {
-    if (err) {
-      return res.status(422).send({
-        message: errorHandler.getErrorMessage(err)
-      });
-    } else {
-      res.json(articles);
-    }
+  Article.findAll({
+    include: [
+      {
+        model: User,
+        attributes: ['displayName']
+      }
+    ],
+    order: 'createdAt DESC'
+  }).then(function (articles) {
+    return res.jsonp(articles);
+  }).catch(function (err) {
+    return res.status(422).send(err);
   });
 };
 
@@ -96,22 +92,23 @@ exports.list = function (req, res) {
  * Article middleware
  */
 exports.articleByID = function (req, res, next, id) {
-
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).send({
-      message: 'Article is invalid'
-    });
-  }
-
-  Article.findById(id).populate('user', 'displayName').exec(function (err, article) {
-    if (err) {
-      return next(err);
-    } else if (!article) {
+  Article.findOne({
+    where: {id: id},
+    include: [
+      {
+        model: User,
+        attributes: ['displayName']
+      }
+    ]
+  }).then(function (article) {
+    if (!article) {
       return res.status(404).send({
         message: 'No article with that identifier has been found'
       });
     }
     req.article = article;
     next();
+  }).catch(function (err) {
+    return next(err);
   });
 };

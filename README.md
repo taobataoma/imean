@@ -1,4 +1,5 @@
 # Please check out branch of imean with Sequelize support, other is origin of meanjs
+## for more info visit http://imean.io
 
 [![MEAN.JS Logo](http://meanjs.org/img/logo-small.png)](http://meanjs.org/)
 

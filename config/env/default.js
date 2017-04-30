@@ -16,7 +16,7 @@ module.exports = {
     password: 'Welcom@123',
 
     option: {
-      enableSequelizeLog: true,
+      enableSequelizeLog: false,
       FORCE_DB_SYNC: false
     }
   },

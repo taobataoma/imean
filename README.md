@@ -1,4 +1,4 @@
-# Please check out branch of imean with Sequelize support, other is origin of meanjs
+# iMEAN.JS - Full-Stack JavaScript Using Sequelize, Express, AngularJS, and Node.js - origin of [meanjs/mean](https://github.com/meanjs/mean)
 
 [![MEAN.JS Logo](http://meanjs.org/img/logo-small.png)](http://meanjs.org/)
 

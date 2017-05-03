@@ -95,7 +95,7 @@ module.exports = function (sequelize, DataTypes) {
           return values;
         },
         getProfileImageDefault: function () {
-          return this.profileImageURL.defaultValue;
+          return User.rawAttributes.profileImageURL.defaultValue;
         },
         makeSalt: function () {
           return crypto.randomBytes(16).toString('base64');

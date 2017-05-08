@@ -1,7 +1,7 @@
 {
-  "name": "meanjs",
-  "description": "Fullstack JavaScript with MongoDB, Express, AngularJS, and Node.js.",
-  "homepage": "http://meanjs.org/",
+  "name": "imean",
+  "description": "Fullstack JavaScript with Sequelize, Express, AngularJS, and Node.js.",
+  "homepage": "http://imean.io/",
   "license": "MIT",
   "dependencies": {
     "angular": "~1.5.0",

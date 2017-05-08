@@ -2,7 +2,7 @@
 
 module.exports = {
   app: {
-    title: 'MEAN.JS',
+    title: 'iMEAN',
     description: 'Full-Stack JavaScript with Sequelize, Express, AngularJS, and Node.js',
     keywords: 'sequelize, express, angularjs, node.js, mongoose, passport',
     googleAnalyticsTrackingID: process.env.GOOGLE_ANALYTICS_TRACKING_ID || 'GOOGLE_ANALYTICS_TRACKING_ID'

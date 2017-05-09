@@ -63,11 +63,11 @@ All the config items in `config/env/default.js`
 
 ```javascript
   db: {
-    host: '123.57.142.198',
+    host: 'localhost',
     port: 3306,
     name: 'imean',
-    username: 'taobataoma',
-    password: 'Welcom@123',
+    username: 'admin',
+    password: '',
 
     option: {
       enableSequelizeLog: false,

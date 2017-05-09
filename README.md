@@ -58,8 +58,8 @@ This command does a few things:
 * When the npm packages install process is over, npm will initiate a bower install command to install all the front-end modules needed for the application
 * To update these packages later on, just run `npm update`
 
-## Config Sequelize with MySQL
-All the config items in `config/env/default.js`
+## Configure Sequelize with MySQL
+All the development configure items in `config/env/default.js`
 
 ```javascript
   db: {
@@ -75,6 +75,8 @@ All the config items in `config/env/default.js`
     }
   }
 ```
+
+If you start with *production* environment, please modify the configure in `config/env/production.js`
 
 ## Running Your Application
 

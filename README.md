@@ -61,7 +61,7 @@ This command does a few things:
 ## Config Sequelize with MySQL
 All the config items in `config/env/default.js`
 
-```json
+```javascript
   db: {
     host: '123.57.142.198',
     port: 3306,

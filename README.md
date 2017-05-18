@@ -148,7 +148,7 @@ $ gulp prod
 It is also possible to run any Gulp tasks using npm's run command and therefore use locally installed version of gulp, for example: `npm run gulp eslint`
 
 ## Getting Started With iMEAN
-You have your application running, but there is a lot of stuff to understand. Because iMEAN is origin on [meanjs/mean](https://github.com/meanjs/mean), We recommend you go over the We recommend you go over the [Official Documentation](http://meanjs.org/docs.html).
+You have your application running, but there is a lot of stuff to understand. Because iMEAN is origin on [meanjs/mean](https://github.com/meanjs/mean), We recommend you go over the [Official Documentation](http://meanjs.org/docs.html).
 In the docs we'll try to explain both general concepts of MEAN components and give you some guidelines to help you improve your development process. We tried covering as many aspects as possible, and will keep it updated by your request. You can also help us develop and improve the documentation by checking out the *gh-pages* branch of this repository.
 
 ## Contributing

@@ -154,5 +154,10 @@ In the docs we'll try to explain both general concepts of MEAN components and gi
 ## Contributing
 We welcome pull requests from the community! Just be sure to read the [contributing](https://github.com/taobataoma/imean/blob/master/CONTRIBUTING.md) doc to get started.
 
+## Online support
+- Post an [issue](https://github.com/taobataoma/imean/issues)
+- Email to [taobataoma](mailto:taobataoma@gmail.com)
+- Join [QQ](http://im.qq.com/) Group: 291843550
+
 ## License
 [The MIT License](LICENSE.md)

@@ -78,8 +78,8 @@ All the development configure items in `config/env/default.js`
 
 If you start with *production* environment, please modify the configure in `config/env/production.js`
 
-## iMEAN upgrade some function runing with `ui-cropper`
-When user to change his profile picture, iMEAN user [ui-cropper](https://github.com/CrackerakiUA/ui-cropper) to crop the image, like this:
+## iMEAN runing with `ui-cropper`
+When user to change profile picture, iMEAN use [ui-cropper](https://github.com/CrackerakiUA/ui-cropper) to crop the image, like this:
 ![profile-picture](https://cloud.githubusercontent.com/assets/7778550/25833125/9522127c-34a1-11e7-91b5-3fb1f4f56ea4.jpg)
 
 ## Running Your Application

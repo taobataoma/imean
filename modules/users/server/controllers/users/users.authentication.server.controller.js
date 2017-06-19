@@ -124,35 +124,37 @@ exports.oauthCallback = function (strategy) {
 exports.saveOAuthUserProfile = function (req, providerUserProfile, done) {
   // Setup info object
   var info = {};
+  var user;
 
   // Set redirection path on session.
   // Do not redirect to a signin or signup page
-  if (noReturnUrls.indexOf(req.session.redirect_to) === -1)
+  if (noReturnUrls.indexOf(req.session.redirect_to) === -1) {
     info.redirect_to = req.session.redirect_to;
+  }
 
-  if (!req.user) {
-    // Define a search query fields
-    var searchMainProviderIdentifierField = 'providerData.' + providerUserProfile.providerIdentifierField;
-    var searchAdditionalProviderIdentifierField = 'additionalProvidersData.' + providerUserProfile.provider + '.' + providerUserProfile.providerIdentifierField;
+  // Define a search query fields
+  var searchMainProviderIdentifierField = 'providerData.' + providerUserProfile.providerIdentifierField;
+  var searchAdditionalProviderIdentifierField = 'additionalProvidersData.' + providerUserProfile.provider + '.' + providerUserProfile.providerIdentifierField;
 
-    // Define main provider search query
-    var mainProviderSearchQuery = {};
-    mainProviderSearchQuery.provider = providerUserProfile.provider;
-    mainProviderSearchQuery[searchMainProviderIdentifierField] = providerUserProfile.providerData[providerUserProfile.providerIdentifierField];
+  // Define main provider search query
+  var mainProviderSearchQuery = {};
+  mainProviderSearchQuery.provider = providerUserProfile.provider;
+  mainProviderSearchQuery[searchMainProviderIdentifierField] = providerUserProfile.providerData[providerUserProfile.providerIdentifierField];
 
-    // Define additional provider search query
-    var additionalProviderSearchQuery = {};
-    additionalProviderSearchQuery[searchAdditionalProviderIdentifierField] = providerUserProfile.providerData[providerUserProfile.providerIdentifierField];
+  // Define additional provider search query
+  var additionalProviderSearchQuery = {};
+  additionalProviderSearchQuery[searchAdditionalProviderIdentifierField] = providerUserProfile.providerData[providerUserProfile.providerIdentifierField];
 
-    // Define a search query to find existing user with current provider profile
-    var searchQuery = {
-      where: {
-        $or: [mainProviderSearchQuery, additionalProviderSearchQuery]
-      }
-    };
+  // Define a search query to find existing user with current provider profile
+  var searchQuery = {
+    where: {
+      $or: [mainProviderSearchQuery, additionalProviderSearchQuery]
+    }
+  };
 
-    User.findOne(searchQuery).then(function (user) {
-      if (!user) {
+  User.findOne(searchQuery).then(function (existingUser) {
+    if (!req.user) {
+      if (!existingUser) {
         var possibleUsername = providerUserProfile.username || ((providerUserProfile.email) ? providerUserProfile.email.split('@')[0] : '');
 
         User.findUniqueUsername(possibleUsername, null, function (availableUsername) {
@@ -179,34 +181,36 @@ exports.saveOAuthUserProfile = function (req, providerUserProfile, done) {
           });
         });
       } else {
-        return done(null, user, info);
+        return done(null, existingUser, info);
       }
-    }).catch(function (err) {
-      return done(err);
-    });
-  } else {
-    // User is already logged in, join the provider data to the existing user
-    var user = req.user;
+    } else {
+      // User is already logged in, join the provider data to the existing user
+      user = req.user;
 
-    // Check if user exists, is not signed in using this provider, and doesn't have that provider data already configured
-    if (user.provider !== providerUserProfile.provider && (!user.additionalProvidersData || !user.additionalProvidersData[providerUserProfile.provider])) {
+      // Check if an existing user was found for this provider account
+      if (existingUser) {
+        if (user.id !== existingUser.id) {
+          return done(new Error('Account is already connected to another user'), user, info);
+        }
+        return done(new Error('User is already connected using this provider'), user, info);
+      }
       // Add the provider data to the additional provider data field
       if (!user.additionalProvidersData) {
         user.additionalProvidersData = {};
+
+        user.additionalProvidersData[providerUserProfile.provider] = providerUserProfile.providerData;
+
+        // Then tell mongoose that we've updated the additionalProvidersData field
+        user.markModified('additionalProvidersData');
+
+        user.save(function (err) {
+          return done(err, user, info);
+        });
       }
-
-      user.additionalProvidersData[providerUserProfile.provider] = providerUserProfile.providerData;
-
-      // And save the user
-      user.save().then(function () {
-        return done(null, user, '/settings/accounts');
-      }).catch(function (err) {
-        return done(err, user, '/settings/accounts');
-      });
-    } else {
-      return done(new Error('User is already connected using this provider'), user);
     }
-  }
+  }).catch(function (err) {
+    return done(err);
+  });
 };
 
 /**

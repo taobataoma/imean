@@ -23,7 +23,8 @@ var _ = require('lodash'),
   webdriver_update = require('gulp-protractor').webdriver_update,
   webdriver_standalone = require('gulp-protractor').webdriver_standalone,
   del = require('del'),
-  KarmaServer = require('karma').Server;
+  KarmaServer = require('karma').Server,
+  semver = require('semver');
 
 // Set NODE_ENV to 'development'
 gulp.task('env:dev', function () {
@@ -40,18 +41,8 @@ gulp.task('env:prod', function () {
 // Nodemon task
 gulp.task('nodemon', function () {
 
-  var nodeVersions = process.versions;
-  var debugArgument = '--debug';
-  switch (nodeVersions.node.substr(0, 1)) {
-    case '4':
-    case '5':
-    case '6':
-      debugArgument = '--debug';
-      break;
-    case '7':
-      debugArgument = '--inspect';
-      break;
-  }
+  // Node.js v7 and newer use different debug argument
+  var debugArgument = semver.satisfies(process.versions.node, '>=7.0.0') ? '--inspect' : '--debug';
 
   return plugins.nodemon({
     script: 'server.js',

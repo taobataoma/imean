@@ -157,6 +157,7 @@ We welcome pull requests from the community! Just be sure to read the [contribut
 ## Online support
 - Post an [issue](https://github.com/taobataoma/imean/issues)
 - Email to [taobataoma](mailto:taobataoma@gmail.com)
+- Skype ID: taobataoma
 - Join [QQ](http://im.qq.com/) Group: 291843550
 
 ## License
